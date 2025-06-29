@@ -6,7 +6,7 @@ Learn how to build a serverless application using AWS services and Terraform.
 
 ## Tech Stack
 - Frontend : Vanilla JS + HTML using S3 Static Hosting
-- Backend : Python/Node.js Lambda using Lambda + API Gateway
+- Backend : Python Lambda using Lambda + API Gateway
 - Database : NoSQL using DynamoDB
 - Infrastructure : IaC using Terraform
 
