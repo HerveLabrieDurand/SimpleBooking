@@ -39,11 +39,6 @@ resource "aws_dynamodb_table" "bookings" {
   }
 }
 
-# API Gateway
-resource "aws_api_gateway_rest_api" "booking_api" {
-  name = "booking-api"
-}
-
 # Archive file for lambda function
 data "archive_file" "lambda_book_room" {
   type = "zip"
@@ -90,6 +85,11 @@ resource "aws_iam_policy" "dynamodb_access" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 resource "aws_iam_role_policy_attachment" "lambda_dynamodb" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = aws_iam_policy.dynamodb_access.arn
@@ -105,4 +105,45 @@ resource "aws_lambda_function" "book_room" {
 
   handler = "book_room.lambda_handler"
   runtime = "python3.8"
+}
+
+# API Gateway
+resource "aws_apigatewayv2_api" "booking_api" {
+  name          = "booking-api"
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_stage" "booking_api_stage" {
+  api_id      = aws_apigatewayv2_api.booking_api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_apigatewayv2_integration" "booking_integration" {
+  api_id = aws_apigatewayv2_api.booking_api.id
+
+  integration_uri    = aws_lambda_function.book_room.invoke_arn
+  integration_type   = "AWS_PROXY"
+  integration_method = "POST"
+}
+
+resource "aws_apigatewayv2_route" "booking_route" {
+  api_id = aws_apigatewayv2_api.booking_api.id
+
+  route_key = "POST /book-room"
+
+  target = "integrations/${aws_apigatewayv2_integration.booking_integration.id}"
+}
+
+resource "aws_lambda_permission" "allow_api_gateway" {
+  statement_id  = "AllowExecutionFromAPIGateway"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.book_room.function_name
+  principal     = "apigateway.amazonaws.com"
+}
+
+output "base_url" {
+  description = "Base URL for API Gateway stage."
+
+  value = "${aws_apigatewayv2_stage.booking_api_stage.invoke_url}/"
 }
